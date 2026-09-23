@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>復古乒乓球 Pong：領地戰爭版</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="wrap">
+    <div id="hud">
+      <span id="scoreLeft">藍方主堡: 1500/1500</span>
+      <span id="highScore">場上單位: 0</span>
+      <span id="scoreRight">紅方主堡: 1500/1500</span>
+    </div>
+    <canvas id="game" width="800" height="500"></canvas>
+    <div id="hint">
+      [1] 單人對電腦　[2] 雙人對戰　　單人模式難度: [3] 簡單 / [4] 普通 / [5] 困難<br>
+      左方: W / S 或 滑鼠移動　　右方: ↑ / ↓　　[空白鍵] 開始 / 重新開始<br>
+      技能：藍方按 [E]、紅方按 [L]<br>
+      目標：摧毀敵方主堡即可獲勝
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
