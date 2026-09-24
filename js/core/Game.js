@@ -1,6 +1,6 @@
 /**
  * Game - 遊戲主控制器與狀態機
- * 協調所有實體生命週期、物理碰撞、音效、粒子與介面繪製
+ * 協調所有實體生命週期、物理碰撞、音效、粒子、精靈圖與介面繪製
  */
 import {
   CANVAS_WIDTH,
@@ -39,6 +39,7 @@ import { Unit } from '../entities/Unit.js';
 import { Physics } from '../systems/Physics.js';
 import { ParticleSystem } from '../systems/ParticleSystem.js';
 import { AudioSystem } from '../systems/AudioSystem.js';
+import { SpriteManager } from '../systems/SpriteManager.js';
 import { HUD } from '../ui/HUD.js';
 
 export class Game {
@@ -54,7 +55,12 @@ export class Game {
     // 系統初始化
     this.audioSystem = new AudioSystem();
     this.particleSystem = new ParticleSystem();
+    this.spriteManager = new SpriteManager();
     this.hud = new HUD();
+
+    // 預載入自訂精靈圖與音訊資源
+    this.spriteManager.loadAll();
+    this.audioSystem.loadAudioFiles();
 
     // 遊戲狀態與參數
     this.mode = '1P'; // '1P' | '2P'
@@ -184,6 +190,9 @@ export class Game {
     const homeX = side === 'blue' ? PADDLE_W + 12 : CANVAS_WIDTH - PADDLE_W - 12;
     const baseY = TURRET_Y + (Math.random() * 2 - 1) * 90;
     this.units.push(new Unit(side, 'trex', homeX, baseY));
+
+    // 暴龍被招喚出來時播放音效 monster_roar
+    this.audioSystem.playMonsterRoar();
   }
 
   fireTurrets(side, outBalls) {
@@ -208,7 +217,7 @@ export class Game {
       let target = null;
       let bestDist = Infinity;
       for (const u of this.units) {
-        if (!u.alive || u.side === side || !u.arrived) continue;
+        if (!u.alive || u.isDying || u.side === side || !u.arrived) continue;
         const d = Math.hypot(u.x - t.x, u.y - t.y);
         if (d < bestDist) {
           bestDist = d;
@@ -217,14 +226,13 @@ export class Game {
       }
 
       if (target) {
-        target.hp -= TURRET_DAMAGE;
+        target.takeDamage(TURRET_DAMAGE);
         this.particleSystem.addAttackEffect(
           t.x, t.y, target.x, target.y,
           t.side === 'blue' ? '#4db8ff' : '#ff5b5b'
         );
         this.audioSystem.playAttackSound('turret');
-        if (target.hp <= 0) {
-          target.alive = false;
+        if (!target.alive) {
           anyDied = true;
         }
       }
@@ -429,6 +437,7 @@ export class Game {
       if (!u.alive) continue;
 
       u.updateMovement(this.boundaryX, dtFactor);
+      u.updateAnimation(dtFactor, this.spriteManager);
 
       u.updateAction({
         now,
@@ -511,9 +520,9 @@ export class Game {
       t.render(ctx, now);
     }
 
-    // 7. 繪製士兵單位
+    // 7. 繪製士兵單位（傳入 spriteManager 進行 Chimera 影格渲染）
     for (const u of this.units) {
-      u.render(ctx, now);
+      u.render(ctx, now, this.spriteManager);
     }
 
     // 8. 繪製球拍

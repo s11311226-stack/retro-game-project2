@@ -1,12 +1,15 @@
 /**
- * AudioSystem - 原生 Web Audio API 即時合成音效系統
- * 無需外部音檔，支援撞牆音、出界下滑音與各兵種振盪器打擊音效
+ * AudioSystem - 原生 Web Audio API 即時合成音效與自訂音訊載入系統
+ * 支援撞牆方波、出界下滑音、兵種振盪器打擊音效，以及 Chimera 專屬怪獸咆哮與攻擊音效
  */
 import { ATTACK_SOUND_PROFILES } from '../config.js';
 
 export class AudioSystem {
   constructor() {
     this.audioCtx = null;
+    this.buffers = {};
+    this.audioElements = {};
+    this.isLoaded = false;
   }
 
   getAudioContext() {
@@ -29,6 +32,84 @@ export class AudioSystem {
       ac.resume().catch(() => {});
     }
     return ac;
+  }
+
+  /**
+   * 預載入自訂怪獸音訊檔 (monster_roar & bigmonster_attack)
+   * 採用 Web Audio API ArrayBuffer 解碼，並備有 HTMLAudioElement 雙軌容錯
+   */
+  async loadAudioFiles() {
+    const files = [
+      { key: 'monster_roar', url: 'assets/audio/monster_roar.wav' },
+      { key: 'bigmonster_attack', url: 'assets/audio/bigmonster_attack.wav' }
+    ];
+
+    for (const item of files) {
+      // 準備 HTMLAudio 備援
+      try {
+        const audio = new Audio(item.url);
+        audio.preload = 'auto';
+        this.audioElements[item.key] = audio;
+      } catch (e) {}
+
+      // 嘗試 Web Audio API 解碼
+      try {
+        const response = await fetch(item.url);
+        const arrayBuffer = await response.arrayBuffer();
+        const ac = this.getAudioContext();
+        if (ac) {
+          const audioBuffer = await ac.decodeAudioData(arrayBuffer);
+          this.buffers[item.key] = audioBuffer;
+        }
+      } catch (e) {
+        // 若在特定受限環境 fetch 失敗，將自動以 Audio 標籤備援播放
+      }
+    }
+    this.isLoaded = true;
+  }
+
+  /**
+   * 播放已載入的音效檔
+   * @param {string} key
+   * @param {number} volume
+   */
+  playSoundBuffer(key, volume = 0.5) {
+    const ac = this.resumeIfNeeded();
+
+    if (ac && this.buffers[key]) {
+      try {
+        const source = ac.createBufferSource();
+        const gainNode = ac.createGain();
+        source.buffer = this.buffers[key];
+        gainNode.gain.setValueAtTime(volume, ac.currentTime);
+        source.connect(gainNode).connect(ac.destination);
+        source.start();
+        return;
+      } catch (e) {}
+    }
+
+    // Fallback: 使用 Audio 物件播放
+    if (this.audioElements[key]) {
+      try {
+        const clone = this.audioElements[key].cloneNode();
+        clone.volume = volume;
+        clone.play().catch(() => {});
+      } catch (e) {}
+    }
+  }
+
+  /**
+   * 暴龍招喚音效：monster_roar
+   */
+  playMonsterRoar() {
+    this.playSoundBuffer('monster_roar', 0.6);
+  }
+
+  /**
+   * 暴龍攻擊音效：bigmonster_attack
+   */
+  playBigMonsterAttack() {
+    this.playSoundBuffer('bigmonster_attack', 0.65);
   }
 
   /**
@@ -75,10 +156,15 @@ export class AudioSystem {
   }
 
   /**
-   * 兵種與砲台攻擊音效（依兵種音色配置自動選擇波形與頻率）
-   * @param {string} kind - 攻擊者類型 ('archer', 'sword', 'cavalry', 'shield', 'turret', 'mage', 'trex')
+   * 兵種與砲台攻擊音效（依兵種音色配置自動選擇）
+   * @param {string} kind
    */
   playAttackSound(kind) {
+    if (kind === 'trex') {
+      this.playBigMonsterAttack();
+      return;
+    }
+
     const ac = this.resumeIfNeeded();
     if (!ac) return;
 
