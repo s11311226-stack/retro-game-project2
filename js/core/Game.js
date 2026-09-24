@@ -73,6 +73,8 @@ export class Game {
     this.targetBoundaryX = CANVAS_WIDTH / 2;
     this.blueTerritoryHp = TERRITORY_HP_MAX;
     this.redTerritoryHp = TERRITORY_HP_MAX;
+    this.lastBlueHp = BASE_HP;
+    this.lastRedHp = BASE_HP;
 
     // 計時器
     this.matchStartTime = 0;
@@ -149,6 +151,8 @@ export class Game {
     this.targetBoundaryX = CANVAS_WIDTH / 2;
     this.blueTerritoryHp = TERRITORY_HP_MAX;
     this.redTerritoryHp = TERRITORY_HP_MAX;
+    this.lastBlueHp = BASE_HP;
+    this.lastRedHp = BASE_HP;
 
     this.turrets = this.createTurrets();
     this.bases = this.createBases();
@@ -264,6 +268,12 @@ export class Game {
         );
       }
     }
+  }
+
+  handleBaseDamage(enemyBase, damage) {
+    enemyBase.takeDamage(damage);
+    this.updateHUD();
+    this.checkBaseDestruction();
   }
 
   checkBaseDestruction() {
@@ -446,13 +456,22 @@ export class Game {
         boundaryX: this.boundaryX,
         particleSystem: this.particleSystem,
         audioSystem: this.audioSystem,
-        onTerritoryDamage: (side, dmg) => this.handleTerritoryDamage(side, dmg)
+        onTerritoryDamage: (side, dmg) => this.handleTerritoryDamage(side, dmg),
+        onBaseDamage: (base, dmg) => this.handleBaseDamage(base, dmg)
       });
     }
 
     const beforeCount = this.units.length;
     this.units = this.units.filter(u => u.alive);
-    if (this.units.length !== beforeCount) {
+
+    const blueBase = this.bases.find(b => b.side === 'blue');
+    const redBase = this.bases.find(b => b.side === 'red');
+    const blueHp = blueBase ? blueBase.hp : 0;
+    const redHp = redBase ? redBase.hp : 0;
+
+    if (this.lastBlueHp !== blueHp || this.lastRedHp !== redHp || this.units.length !== beforeCount) {
+      this.lastBlueHp = blueHp;
+      this.lastRedHp = redHp;
       this.updateHUD();
     }
   }

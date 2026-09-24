@@ -1,6 +1,6 @@
 /**
  * AudioSystem - 原生 Web Audio API 即時合成音效與自訂音訊載入系統
- * 支援撞牆方波、出界下滑音、兵種振盪器打擊音效，以及 Chimera 專屬怪獸咆哮與攻擊音效
+ * 支援撞牆方波、出界下滑音、兵種振盪器打擊音效，以及 Chimera (暴龍) 與 Warrior (盾兵) 專屬音效
  */
 import { ATTACK_SOUND_PROFILES } from '../config.js';
 
@@ -35,13 +35,14 @@ export class AudioSystem {
   }
 
   /**
-   * 預載入自訂怪獸音訊檔 (monster_roar & bigmonster_attack)
+   * 預載入自訂怪獸與戰士音訊檔
    * 採用 Web Audio API ArrayBuffer 解碼，並備有 HTMLAudioElement 雙軌容錯
    */
   async loadAudioFiles() {
     const files = [
       { key: 'monster_roar', url: 'assets/audio/monster_roar.wav' },
-      { key: 'bigmonster_attack', url: 'assets/audio/bigmonster_attack.wav' }
+      { key: 'bigmonster_attack', url: 'assets/audio/bigmonster_attack.wav' },
+      { key: 'qubodupItemHandling1', url: 'assets/audio/qubodupItemHandling1.flac' }
     ];
 
     for (const item of files) {
@@ -113,6 +114,13 @@ export class AudioSystem {
   }
 
   /**
+   * 盾兵 (Warrior) 攻擊音效：qubodupItemHandling1
+   */
+  playWarriorAttack() {
+    this.playSoundBuffer('qubodupItemHandling1', 0.6);
+  }
+
+  /**
    * 球碰撞上/下牆壁時的短促方波音效
    */
   playWallHitSound() {
@@ -162,6 +170,11 @@ export class AudioSystem {
   playAttackSound(kind) {
     if (kind === 'trex') {
       this.playBigMonsterAttack();
+      return;
+    }
+
+    if (kind === 'shield') {
+      this.playWarriorAttack();
       return;
     }
 
