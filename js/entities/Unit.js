@@ -1,7 +1,8 @@
 /**
  * Unit - 士兵實體類別，封裝 6 大兵種的行為邏輯、走位站線、優先序攻擊與外觀繪製
  * 暴龍 (trex) 支援 Asset_pack_Chimera 動態精靈圖序列幀播放 (idle/move/attack/dead)
- * 盾兵 (shield) 支援 warrior 動態精靈圖序列幀播放 (idle/move/attack/dead) 與專屬打擊音效
+ * 盾兵 (shield) 支援 warrior 動態精靈圖序列幀播放 (idle/move/attack/dead)
+ * 騎兵 (cavalry) 支援 Cavalry 動態精靈圖序列幀播放 (idle/move/attack/dead) 與專屬打擊音效
  */
 import { Entity } from './Entity.js';
 import {
@@ -44,8 +45,8 @@ export class Unit extends Entity {
     this.isDying = false; // 是否進入死亡動畫階段
     this.actionLock = null; // 'base' | 'unit' | 'territory'
 
-    // 是否具備動態精靈圖動畫（目前支援暴龍與盾兵）
-    this.isAnimatedType = (type === 'trex' || type === 'shield');
+    // 是否具備動態精靈圖動畫（暴龍、盾兵、騎兵）
+    this.isAnimatedType = (type === 'trex' || type === 'shield' || type === 'cavalry');
 
     // 動態精靈圖動畫狀態控制 (idle / move / attack / dead)
     this.animState = 'idle';
@@ -75,7 +76,7 @@ export class Unit extends Entity {
   }
 
   /**
-   * 扣除血量，若暴龍或盾兵血量歸零則進入死亡動畫階段
+   * 扣除血量，若為精靈圖兵種血量歸零則進入死亡動畫階段
    * @param {number} amount
    */
   takeDamage(amount) {
@@ -100,7 +101,8 @@ export class Unit extends Entity {
   updateAnimation(dtFactor = 1, spriteManager = null) {
     if (!this.isAnimatedType) return;
 
-    const charId = this.type === 'shield' ? 'warrior' : 'chimera';
+    const charId = this.type === 'shield' ? 'warrior'
+      : (this.type === 'cavalry' ? 'cavalry' : 'chimera');
 
     // 依角色與狀態決定影格播放速率 (以 60 FPS 為基準)
     let speed = 0.14;
@@ -109,7 +111,13 @@ export class Unit extends Entity {
       else if (this.animState === 'attack') speed = 0.20;
       else if (this.animState === 'dead') speed = 0.14;
       else speed = 0.12; // idle
+    } else if (this.type === 'cavalry') {
+      if (this.animState === 'move') speed = 0.22; // 騎兵移動速度較快
+      else if (this.animState === 'attack') speed = 0.20;
+      else if (this.animState === 'dead') speed = 0.14;
+      else speed = 0.12; // idle
     } else {
+      // 暴龍 chimera
       if (this.animState === 'move') speed = 0.16;
       else if (this.animState === 'attack') speed = 0.22;
       else if (this.animState === 'dead') speed = 0.12;
@@ -119,7 +127,7 @@ export class Unit extends Entity {
 
     const frameCount = spriteManager
       ? spriteManager.getFrameCount(charId, this.animState)
-      : (this.animState === 'attack' ? 8 : this.animState === 'dead' ? 6 : 6);
+      : (this.animState === 'attack' ? 7 : this.animState === 'dead' ? 7 : 6);
 
     if (this.animState === 'dead') {
       if (this.animFrame >= frameCount - 0.05) {
@@ -247,6 +255,22 @@ export class Unit extends Entity {
     }
     this.actionLock = action;
 
+    // 輔助函式：觸發攻擊音效與動畫
+    const triggerAttack = () => {
+      if (this.type === 'trex') {
+        this.triggerAttackAnimation();
+        audioSystem.playBigMonsterAttack();
+      } else if (this.type === 'shield') {
+        this.triggerAttackAnimation();
+        audioSystem.playWarriorAttack();
+      } else if (this.type === 'cavalry') {
+        this.triggerAttackAnimation();
+        audioSystem.playCavalryAttack();
+      } else {
+        audioSystem.playAttackSound(this.type);
+      }
+    };
+
     // 執行鎖定之行為
     if (action === 'base') {
       // 修正主堡扣血並即時同步遊戲頂部 HUD 與勝負判定
@@ -257,17 +281,7 @@ export class Unit extends Entity {
       }
 
       particleSystem.addAttackEffect(this.x, this.y, enemyBase.x, enemyBase.y, unitColor);
-
-      if (this.type === 'trex') {
-        this.triggerAttackAnimation();
-        audioSystem.playBigMonsterAttack();
-      } else if (this.type === 'shield') {
-        this.triggerAttackAnimation();
-        audioSystem.playWarriorAttack();
-      } else {
-        audioSystem.playAttackSound(this.type);
-      }
-
+      triggerAttack();
       this.cooldownUntil = now + stats.cooldown;
       return;
     }
@@ -275,17 +289,7 @@ export class Unit extends Entity {
     if (action === 'unit') {
       nearestEnemy.takeDamage(stats.damage);
       particleSystem.addAttackEffect(this.x, this.y, nearestEnemy.x, nearestEnemy.y, unitColor);
-
-      if (this.type === 'trex') {
-        this.triggerAttackAnimation();
-        audioSystem.playBigMonsterAttack();
-      } else if (this.type === 'shield') {
-        this.triggerAttackAnimation();
-        audioSystem.playWarriorAttack();
-      } else {
-        audioSystem.playAttackSound(this.type);
-      }
-
+      triggerAttack();
       this.cooldownUntil = now + stats.cooldown;
 
       // 暴龍機率性暈眩周圍敵軍
@@ -303,17 +307,7 @@ export class Unit extends Entity {
       const reach = this.type === 'archer' ? 60 : 30;
       const effectTargetX = this.side === 'blue' ? this.x + reach : this.x - reach;
       particleSystem.addAttackEffect(this.x, this.y, effectTargetX, this.y, unitColor);
-
-      if (this.type === 'trex') {
-        this.triggerAttackAnimation();
-        audioSystem.playBigMonsterAttack();
-      } else if (this.type === 'shield') {
-        this.triggerAttackAnimation();
-        audioSystem.playWarriorAttack();
-      } else {
-        audioSystem.playAttackSound(this.type);
-      }
-
+      triggerAttack();
       this.cooldownUntil = now + stats.cooldown;
 
       if (onTerritoryDamage) {
@@ -326,6 +320,7 @@ export class Unit extends Entity {
    * 繪製士兵外觀、武器示意線條、暈眩光環與血條
    * 暴龍 (trex) 升級為 Chimera 精靈圖序列幀播放
    * 盾兵 (shield) 升級為 Warrior 精靈圖序列幀播放
+   * 騎兵 (cavalry) 升級為 Cavalry 精靈圖序列幀播放
    * @param {CanvasRenderingContext2D} ctx
    * @param {number} now
    * @param {SpriteManager} [spriteManager]
@@ -386,7 +381,59 @@ export class Unit extends Entity {
       }
     }
 
-    // 2. 暴龍 (chimera) 精靈圖渲染
+    // 2. 騎兵 (cavalry) 精靈圖渲染
+    if (type === 'cavalry' && spriteManager && spriteManager.isLoaded) {
+      const frameImg = spriteManager.getFrame('cavalry', this.animState, this.animFrame);
+      if (frameImg) {
+        const drawW = 48;
+        const drawH = 48;
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+
+        // 腳下陣營光圈
+        ctx.fillStyle = this.side === 'blue' ? 'rgba(77, 184, 255, 0.35)' : 'rgba(255, 91, 91, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + drawH / 2 - 4, 16, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.translate(this.x, this.y);
+
+        // 藍方朝右 (scaleX: 1)，紅方鏡像朝左 (scaleX: -1)
+        if (this.side === 'red') {
+          ctx.scale(-1, 1);
+        }
+
+        ctx.drawImage(frameImg, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
+
+        // 暈眩狀態指示
+        if (now < this.stunnedUntil && !this.isDying) {
+          ctx.strokeStyle = 'rgba(255, 230, 60, 0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 20, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.lineWidth = 1;
+        }
+
+        // 血條繪製（死亡階段不顯示血條）
+        if (!this.isDying) {
+          const hpRatio = Math.max(0, this.hp / this.maxHp);
+          const barW = 26;
+          const barY = this.y - drawH / 2 - 6;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(this.x - barW / 2, barY, barW, 3);
+          ctx.fillStyle = this.side === 'blue' ? '#7fd1ff' : '#ff9b9b';
+          ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 3);
+        }
+        return;
+      }
+    }
+
+    // 3. 暴龍 (chimera) 精靈圖渲染
     if (type === 'trex' && spriteManager && spriteManager.isLoaded) {
       const frameImg = spriteManager.getFrame('chimera', this.animState, this.animFrame);
       if (frameImg) {
@@ -431,7 +478,7 @@ export class Unit extends Entity {
       }
     }
 
-    // 3. 其他基礎兵種維持幾何風格
+    // 4. 其他基礎兵種維持幾何風格
     let color;
     if (type === 'mage') color = '#c07dff';
     else if (type === 'trex') color = '#ffd700';

@@ -118,6 +118,14 @@ export class Game {
       }
     });
 
+    // 點擊畫布：開始 / 重新開始並解鎖音訊上下文
+    this.canvas.addEventListener('click', () => {
+      this.audioSystem.resumeIfNeeded();
+      if (this.state === 'START' || this.state === 'GAMEOVER') {
+        this.startGame();
+      }
+    });
+
     // 模式切換
     this.inputHandler.onAction('1', () => { this.mode = '1P'; });
     this.inputHandler.onAction('2', () => { this.mode = '2P'; });
@@ -161,6 +169,9 @@ export class Game {
 
     this.state = 'PLAYING';
     this.updateHUD();
+
+    // 遊戲開始時循環播放背景音樂
+    this.audioSystem.playBGM();
   }
 
   computeSpeedFactor() {
@@ -287,11 +298,13 @@ export class Game {
       this.winnerText = '紅方摧毀藍方主堡，紅方獲勝！';
       this.state = 'GAMEOVER';
       this.updateHUD();
+      this.audioSystem.stopBGM();
     } else if (redBase && redBase.hp <= 0) {
       redBase.hp = 0;
       this.winnerText = '藍方摧毀紅方主堡，藍方獲勝！';
       this.state = 'GAMEOVER';
       this.updateHUD();
+      this.audioSystem.stopBGM();
     }
   }
 
@@ -490,6 +503,7 @@ export class Game {
       }
 
       this.checkBaseDestruction();
+      this.updateHUD();
     } else if (this.state === 'START') {
       // 待機畫面允許試玩移動球拍
       this.updatePaddles(dtFactor);

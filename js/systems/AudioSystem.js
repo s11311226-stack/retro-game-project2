@@ -1,6 +1,6 @@
 /**
  * AudioSystem - 原生 Web Audio API 即時合成音效與自訂音訊載入系統
- * 支援撞牆方波、出界下滑音、兵種振盪器打擊音效，以及 Chimera (暴龍) 與 Warrior (盾兵) 專屬音效
+ * 支援撞牆方波、出界下滑音、背景音樂 (BGM) 循環播放，以及各兵種專屬打擊音效
  */
 import { ATTACK_SOUND_PROFILES } from '../config.js';
 
@@ -9,6 +9,7 @@ export class AudioSystem {
     this.audioCtx = null;
     this.buffers = {};
     this.audioElements = {};
+    this.bgm = null;
     this.isLoaded = false;
   }
 
@@ -35,14 +36,23 @@ export class AudioSystem {
   }
 
   /**
-   * 預載入自訂怪獸與戰士音訊檔
-   * 採用 Web Audio API ArrayBuffer 解碼，並備有 HTMLAudioElement 雙軌容錯
+   * 預載入自訂怪獸、戰士與騎兵音訊檔，並設定背景音樂
    */
   async loadAudioFiles() {
+    // 1. 初始化循環背景音樂 game_music
+    try {
+      this.bgm = new Audio('assets/audio/game_music.wav');
+      this.bgm.loop = true;
+      this.bgm.volume = 0.35;
+      this.bgm.preload = 'auto';
+    } catch (e) {}
+
+    // 2. 效果音列表
     const files = [
       { key: 'monster_roar', url: 'assets/audio/monster_roar.wav' },
       { key: 'bigmonster_attack', url: 'assets/audio/bigmonster_attack.wav' },
-      { key: 'qubodupItemHandling1', url: 'assets/audio/qubodupItemHandling1.flac' }
+      { key: 'qubodupItemHandling1', url: 'assets/audio/qubodupItemHandling1.flac' },
+      { key: 'knifesharpener2', url: 'assets/audio/knifesharpener2.flac' }
     ];
 
     for (const item of files) {
@@ -62,11 +72,31 @@ export class AudioSystem {
           const audioBuffer = await ac.decodeAudioData(arrayBuffer);
           this.buffers[item.key] = audioBuffer;
         }
-      } catch (e) {
-        // 若在特定受限環境 fetch 失敗，將自動以 Audio 標籤備援播放
-      }
+      } catch (e) {}
     }
     this.isLoaded = true;
+  }
+
+  /**
+   * 開始循環播放遊戲背景音樂
+   */
+  playBGM() {
+    if (this.bgm) {
+      this.bgm.currentTime = 0;
+      this.bgm.play().catch(() => {
+        // 瀏覽器未互動政策時忽略，待互動後啟動
+      });
+    }
+  }
+
+  /**
+   * 停止背景音樂
+   */
+  stopBGM() {
+    if (this.bgm) {
+      this.bgm.pause();
+      this.bgm.currentTime = 0;
+    }
   }
 
   /**
@@ -118,6 +148,13 @@ export class AudioSystem {
    */
   playWarriorAttack() {
     this.playSoundBuffer('qubodupItemHandling1', 0.6);
+  }
+
+  /**
+   * 騎兵 (Cavalry) 攻擊音效：knifesharpener2
+   */
+  playCavalryAttack() {
+    this.playSoundBuffer('knifesharpener2', 0.65);
   }
 
   /**
@@ -175,6 +212,11 @@ export class AudioSystem {
 
     if (kind === 'shield') {
       this.playWarriorAttack();
+      return;
+    }
+
+    if (kind === 'cavalry') {
+      this.playCavalryAttack();
       return;
     }
 

@@ -1,6 +1,6 @@
 /**
  * SpriteManager - 精靈圖資源管理器
- * 負責預載入、快取與提供 Chimera (暴龍) 及 Warrior (盾兵) 各狀態序列幀影像物件
+ * 負責預載入、快取與提供 Chimera (暴龍)、Warrior (盾兵) 及 Cavalry (騎兵) 各狀態序列幀影像物件
  */
 export class SpriteManager {
   constructor() {
@@ -16,13 +16,19 @@ export class SpriteManager {
         move: [],
         attack: [],
         dead: []
+      },
+      cavalry: {
+        idle: [],
+        move: [],
+        attack: [],
+        dead: []
       }
     };
     this.isLoaded = false;
   }
 
   /**
-   * 預載入 Chimera 與 Warrior 動畫所有影格
+   * 預載入 Chimera、Warrior 與 Cavalry 動畫所有影格
    * @returns {Promise<void>}
    */
   async loadAll() {
@@ -45,6 +51,16 @@ export class SpriteManager {
           { name: 'move', count: 8, prefix: 'Character_Move' },
           { name: 'attack', count: 8, prefix: 'Character_Attack' },
           { name: 'dead', count: 7, prefix: 'Character_Death' }
+        ]
+      },
+      {
+        id: 'cavalry',
+        basePath: 'assets/images/Cavalry/PNG/',
+        configs: [
+          { name: 'idle', count: 6, prefix: 'Cavalry_Idle' },
+          { name: 'move', count: 8, prefix: 'Cavalry_Move' },
+          { name: 'attack', count: 7, prefix: 'Cavalry_Attack' },
+          { name: 'dead', count: 7, prefix: 'Cavalry_Death' }
         ]
       }
     ];
@@ -78,7 +94,7 @@ export class SpriteManager {
 
   /**
    * 取得指定角色指定動畫與影格之 Image
-   * @param {string} character - 'chimera' | 'warrior'
+   * @param {string} character - 'chimera' | 'warrior' | 'cavalry'
    * @param {string} animName - 'idle' | 'move' | 'attack' | 'dead'
    * @param {number} frameIndex
    * @returns {HTMLImageElement|null}
@@ -92,7 +108,7 @@ export class SpriteManager {
 
   /**
    * 取得指定動畫的總影格數
-   * @param {string} character - 'chimera' | 'warrior'
+   * @param {string} character - 'chimera' | 'warrior' | 'cavalry'
    * @param {string} animName
    * @returns {number}
    */
