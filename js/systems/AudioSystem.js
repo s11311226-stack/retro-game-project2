@@ -158,6 +158,13 @@ export class AudioSystem {
   }
 
   /**
+   * 劍兵 (Sword / warrior2) 攻擊音效：knifesharpener2
+   */
+  playSwordAttack() {
+    this.playSoundBuffer('knifesharpener2', 0.65);
+  }
+
+  /**
    * 球碰撞上/下牆壁時的短促方波音效
    */
   playWallHitSound() {
@@ -215,7 +222,7 @@ export class AudioSystem {
       return;
     }
 
-    if (kind === 'cavalry') {
+    if (kind === 'cavalry' || kind === 'sword') {
       this.playCavalryAttack();
       return;
     }

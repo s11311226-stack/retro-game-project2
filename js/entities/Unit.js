@@ -3,6 +3,7 @@
  * 暴龍 (trex) 支援 Asset_pack_Chimera 動態精靈圖序列幀播放 (idle/move/attack/dead)
  * 盾兵 (shield) 支援 warrior 動態精靈圖序列幀播放 (idle/move/attack/dead)
  * 騎兵 (cavalry) 支援 Cavalry 動態精靈圖序列幀播放 (idle/move/attack/dead) 與專屬打擊音效
+ * 劍兵 (sword) 支援 warrior2 動態精靈圖序列幀播放 (idle/move/attack/dead) 與專屬打擊音效
  */
 import { Entity } from './Entity.js';
 import {
@@ -27,6 +28,7 @@ export class Unit extends Entity {
     const size = type === 'archer' ? 11
       : type === 'shield' ? SHIELD_SIZE
       : type === 'cavalry' ? 12
+      : type === 'sword' ? 13
       : type === 'mage' ? 13
       : type === 'trex' ? SHIELD_SIZE * 6
       : 13;
@@ -45,8 +47,8 @@ export class Unit extends Entity {
     this.isDying = false; // 是否進入死亡動畫階段
     this.actionLock = null; // 'base' | 'unit' | 'territory'
 
-    // 是否具備動態精靈圖動畫（暴龍、盾兵、騎兵）
-    this.isAnimatedType = (type === 'trex' || type === 'shield' || type === 'cavalry');
+    // 是否具備動態精靈圖動畫（暴龍、盾兵、騎兵、劍兵）
+    this.isAnimatedType = (type === 'trex' || type === 'shield' || type === 'cavalry' || type === 'sword');
 
     // 動態精靈圖動畫狀態控制 (idle / move / attack / dead)
     this.animState = 'idle';
@@ -102,7 +104,8 @@ export class Unit extends Entity {
     if (!this.isAnimatedType) return;
 
     const charId = this.type === 'shield' ? 'warrior'
-      : (this.type === 'cavalry' ? 'cavalry' : 'chimera');
+      : (this.type === 'cavalry' ? 'cavalry'
+      : (this.type === 'sword' ? 'warrior2' : 'chimera'));
 
     // 依角色與狀態決定影格播放速率 (以 60 FPS 為基準)
     let speed = 0.14;
@@ -116,6 +119,11 @@ export class Unit extends Entity {
       else if (this.animState === 'attack') speed = 0.20;
       else if (this.animState === 'dead') speed = 0.14;
       else speed = 0.12; // idle
+    } else if (this.type === 'sword') {
+      if (this.animState === 'move') speed = 0.18; // 劍兵移動步頻
+      else if (this.animState === 'attack') speed = 0.22; // 劍兵揮砍速度
+      else if (this.animState === 'dead') speed = 0.14;
+      else speed = 0.12; // idle
     } else {
       // 暴龍 chimera
       if (this.animState === 'move') speed = 0.16;
@@ -127,7 +135,7 @@ export class Unit extends Entity {
 
     const frameCount = spriteManager
       ? spriteManager.getFrameCount(charId, this.animState)
-      : (this.animState === 'attack' ? 7 : this.animState === 'dead' ? 7 : 6);
+      : (this.animState === 'attack' ? 8 : this.animState === 'dead' ? 7 : 6);
 
     if (this.animState === 'dead') {
       if (this.animFrame >= frameCount - 0.05) {
@@ -266,6 +274,9 @@ export class Unit extends Entity {
       } else if (this.type === 'cavalry') {
         this.triggerAttackAnimation();
         audioSystem.playCavalryAttack();
+      } else if (this.type === 'sword') {
+        this.triggerAttackAnimation();
+        audioSystem.playSwordAttack();
       } else {
         audioSystem.playAttackSound(this.type);
       }
@@ -433,7 +444,59 @@ export class Unit extends Entity {
       }
     }
 
-    // 3. 暴龍 (chimera) 精靈圖渲染
+    // 3. 劍兵 (warrior2) 精靈圖渲染
+    if (type === 'sword' && spriteManager && spriteManager.isLoaded) {
+      const frameImg = spriteManager.getFrame('warrior2', this.animState, this.animFrame);
+      if (frameImg) {
+        const drawW = 48;
+        const drawH = 48;
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+
+        // 腳下陣營光圈
+        ctx.fillStyle = this.side === 'blue' ? 'rgba(77, 184, 255, 0.35)' : 'rgba(255, 91, 91, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + drawH / 2 - 4, 15, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.translate(this.x, this.y);
+
+        // warrior2 原始方向朝左：藍方需要朝右 (+X) 所以鏡像 scale(-1, 1)，紅方直接朝左 (-X) 不需要翻轉
+        if (this.side === 'blue') {
+          ctx.scale(-1, 1);
+        }
+
+        ctx.drawImage(frameImg, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
+
+        // 暈眩狀態指示
+        if (now < this.stunnedUntil && !this.isDying) {
+          ctx.strokeStyle = 'rgba(255, 230, 60, 0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 18, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.lineWidth = 1;
+        }
+
+        // 血條繪製（死亡階段不顯示血條）
+        if (!this.isDying) {
+          const hpRatio = Math.max(0, this.hp / this.maxHp);
+          const barW = 26;
+          const barY = this.y - drawH / 2 - 6;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(this.x - barW / 2, barY, barW, 3);
+          ctx.fillStyle = this.side === 'blue' ? '#7fd1ff' : '#ff9b9b';
+          ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 3);
+        }
+        return;
+      }
+    }
+
+    // 4. 暴龍 (chimera) 精靈圖渲染
     if (type === 'trex' && spriteManager && spriteManager.isLoaded) {
       const frameImg = spriteManager.getFrame('chimera', this.animState, this.animFrame);
       if (frameImg) {
@@ -478,7 +541,7 @@ export class Unit extends Entity {
       }
     }
 
-    // 4. 其他基礎兵種維持幾何風格
+    // 5. 其他基礎兵種維持幾何風格（如弓兵、法師等）
     let color;
     if (type === 'mage') color = '#c07dff';
     else if (type === 'trex') color = '#ffd700';

@@ -22,13 +22,19 @@ export class SpriteManager {
         move: [],
         attack: [],
         dead: []
+      },
+      warrior2: {
+        idle: [],
+        move: [],
+        attack: [],
+        dead: []
       }
     };
     this.isLoaded = false;
   }
 
   /**
-   * 預載入 Chimera、Warrior 與 Cavalry 動畫所有影格
+   * 預載入 Chimera、Warrior、Cavalry 與 Warrior2 動畫所有影格
    * @returns {Promise<void>}
    */
   async loadAll() {
@@ -61,6 +67,16 @@ export class SpriteManager {
           { name: 'move', count: 8, prefix: 'Cavalry_Move' },
           { name: 'attack', count: 7, prefix: 'Cavalry_Attack' },
           { name: 'dead', count: 7, prefix: 'Cavalry_Death' }
+        ]
+      },
+      {
+        id: 'warrior2',
+        basePath: 'assets/images/warrior2/PNG/',
+        configs: [
+          { name: 'idle', count: 6, prefix: 'Warrior2_Idle' },
+          { name: 'move', count: 8, prefix: 'Warrior2_Move' },
+          { name: 'attack', count: 8, prefix: 'Warrior2_Attack_Left' },
+          { name: 'dead', count: 7, prefix: 'Warrior2_Death' }
         ]
       }
     ];
