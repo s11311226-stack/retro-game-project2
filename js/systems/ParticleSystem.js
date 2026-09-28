@@ -14,12 +14,14 @@ export class ParticleSystem {
     this.particles = [];
     this.wallFlashes = [];
     this.attackEffects = [];
+    this.arrows = [];
   }
 
   clear() {
     this.particles = [];
     this.wallFlashes = [];
     this.attackEffects = [];
+    this.arrows = [];
   }
 
   /**
@@ -90,6 +92,30 @@ export class ParticleSystem {
   }
 
   /**
+   * 產生弓兵拋物線飛行箭矢
+   * @param {number} startX
+   * @param {number} startY
+   * @param {number} targetX
+   * @param {number} targetY
+   * @param {Function} [onHit] - 抵達目標時回呼
+   */
+  spawnArrow(startX, startY, targetX, targetY, onHit = null) {
+    const dist = Math.hypot(targetX - startX, targetY - startY);
+    const duration = Math.max(260, Math.min(550, dist * 1.5));
+    const arcHeight = Math.max(25, Math.min(75, dist * 0.22));
+    this.arrows.push({
+      startX,
+      startY,
+      targetX,
+      targetY,
+      arcHeight,
+      startTime: performance.now(),
+      duration,
+      onHit
+    });
+  }
+
+  /**
    * 物理與生命週期更新
    * @param {number} dtFactor
    */
@@ -108,13 +134,40 @@ export class ParticleSystem {
     // 清理過期的牆壁亮光與攻擊射線
     this.wallFlashes = this.wallFlashes.filter(f => now - f.time < WALL_FLASH_DURATION);
     this.attackEffects = this.attackEffects.filter(e => now - e.time < ATTACK_EFFECT_DURATION);
+
+    // 更新弓兵飛行箭矢
+    const survivingArrows = [];
+    for (const a of this.arrows) {
+      const elapsed = now - a.startTime;
+      const t = elapsed / a.duration;
+      if (t >= 1) {
+        if (a.onHit) a.onHit();
+        // 箭矢命中火花
+        for (let i = 0; i < 6; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          this.particles.push({
+            x: a.targetX,
+            y: a.targetY,
+            vx: Math.cos(angle) * (1.2 + Math.random() * 2.2),
+            vy: Math.sin(angle) * (1.2 + Math.random() * 2.2),
+            color: '#ffd166',
+            startTime: now,
+            maxLife: 220
+          });
+        }
+      } else {
+        survivingArrows.push(a);
+      }
+    }
+    this.arrows = survivingArrows;
   }
 
   /**
    * 繪製所有特效
    * @param {CanvasRenderingContext2D} ctx
+   * @param {SpriteManager} [spriteManager]
    */
-  render(ctx) {
+  render(ctx, spriteManager = null) {
     const now = performance.now();
 
     // 1. 繪製牆壁碰撞亮光
@@ -157,6 +210,38 @@ export class ParticleSystem {
       ctx.stroke();
       ctx.globalAlpha = 1;
       ctx.lineWidth = 1;
+    }
+
+    // 4. 繪製弓兵拋物線飛行箭矢
+    const arrowImg = spriteManager?.getImage('arrow_preview');
+    for (const a of this.arrows) {
+      const elapsed = now - a.startTime;
+      const t = Math.max(0, Math.min(1, elapsed / a.duration));
+      const curX = a.startX + (a.targetX - a.startX) * t;
+      const baseY = a.startY + (a.targetY - a.startY) * t;
+      const arc = 4 * a.arcHeight * t * (1 - t);
+      const curY = baseY - arc;
+
+      // 藉由微小步進計算當前切線向量與旋轉角度
+      const dt = 0.015;
+      const nextT = Math.min(1, t + dt);
+      const nextX = a.startX + (a.targetX - a.startX) * nextT;
+      const nextY = a.startY + (a.targetY - a.startY) * nextT - 4 * a.arcHeight * nextT * (1 - nextT);
+      const angle = Math.atan2(nextY - curY, nextX - curX);
+
+      ctx.save();
+      ctx.translate(curX, curY);
+      ctx.rotate(angle);
+
+      if (arrowImg) {
+        const drawW = 32;
+        const drawH = 12;
+        ctx.drawImage(arrowImg, -drawW / 2, -drawH / 2, drawW, drawH);
+      } else {
+        ctx.fillStyle = '#ffd166';
+        ctx.fillRect(-12, -2, 24, 4);
+      }
+      ctx.restore();
     }
   }
 }

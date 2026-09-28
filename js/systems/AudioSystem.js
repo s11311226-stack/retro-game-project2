@@ -52,7 +52,9 @@ export class AudioSystem {
       { key: 'monster_roar', url: 'assets/audio/monster_roar.wav' },
       { key: 'bigmonster_attack', url: 'assets/audio/bigmonster_attack.wav' },
       { key: 'qubodupItemHandling1', url: 'assets/audio/qubodupItemHandling1.flac' },
-      { key: 'knifesharpener2', url: 'assets/audio/knifesharpener2.flac' }
+      { key: 'knifesharpener2', url: 'assets/audio/knifesharpener2.flac' },
+      { key: 'arrow_release', url: 'assets/audio/arrow_release.wav' },
+      { key: 'healing_aura', url: 'assets/audio/healing_aura.wav' }
     ];
 
     for (const item of files) {
@@ -104,7 +106,7 @@ export class AudioSystem {
    * @param {string} key
    * @param {number} volume
    */
-  playSoundBuffer(key, volume = 0.5) {
+  playSoundBuffer(key, volume = 0.3) {
     const ac = this.resumeIfNeeded();
 
     if (ac && this.buffers[key]) {
@@ -133,35 +135,49 @@ export class AudioSystem {
    * 暴龍招喚音效：monster_roar
    */
   playMonsterRoar() {
-    this.playSoundBuffer('monster_roar', 0.6);
+    this.playSoundBuffer('monster_roar', 0.22);
   }
 
   /**
    * 暴龍攻擊音效：bigmonster_attack
    */
   playBigMonsterAttack() {
-    this.playSoundBuffer('bigmonster_attack', 0.65);
+    this.playSoundBuffer('bigmonster_attack', 0.16);
   }
 
   /**
    * 盾兵 (Warrior) 攻擊音效：qubodupItemHandling1
    */
   playWarriorAttack() {
-    this.playSoundBuffer('qubodupItemHandling1', 0.6);
+    this.playSoundBuffer('qubodupItemHandling1', 0.16);
   }
 
   /**
    * 騎兵 (Cavalry) 攻擊音效：knifesharpener2
    */
   playCavalryAttack() {
-    this.playSoundBuffer('knifesharpener2', 0.65);
+    this.playSoundBuffer('knifesharpener2', 0.16);
   }
 
   /**
    * 劍兵 (Sword / warrior2) 攻擊音效：knifesharpener2
    */
   playSwordAttack() {
-    this.playSoundBuffer('knifesharpener2', 0.65);
+    this.playSoundBuffer('knifesharpener2', 0.16);
+  }
+
+  /**
+   * 弓兵 (Archer) 射箭音效：arrow_release
+   */
+  playArrowRelease() {
+    this.playSoundBuffer('arrow_release', 0.16);
+  }
+
+  /**
+   * 法師 (Healer) 治療光環音效：healing_aura
+   */
+  playHealingAura() {
+    this.playSoundBuffer('healing_aura', 0.16);
   }
 
   /**
@@ -177,7 +193,7 @@ export class AudioSystem {
     osc.type = 'square';
     osc.frequency.setValueAtTime(260 + Math.random() * 60, ac.currentTime);
 
-    gain.gain.setValueAtTime(0.15, ac.currentTime);
+    gain.gain.setValueAtTime(0.08, ac.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.09);
 
     osc.connect(gain).connect(ac.destination);
@@ -199,7 +215,7 @@ export class AudioSystem {
     osc.frequency.setValueAtTime(520, ac.currentTime);
     osc.frequency.exponentialRampToValueAtTime(90, ac.currentTime + 0.32);
 
-    gain.gain.setValueAtTime(0.18, ac.currentTime);
+    gain.gain.setValueAtTime(0.1, ac.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.34);
 
     osc.connect(gain).connect(ac.destination);
@@ -227,6 +243,16 @@ export class AudioSystem {
       return;
     }
 
+    if (kind === 'archer') {
+      this.playArrowRelease();
+      return;
+    }
+
+    if (kind === 'mage' || kind === 'healer') {
+      this.playHealingAura();
+      return;
+    }
+
     const ac = this.resumeIfNeeded();
     if (!ac) return;
 
@@ -237,7 +263,7 @@ export class AudioSystem {
     osc.type = profile.type;
     osc.frequency.setValueAtTime(profile.freq, ac.currentTime);
 
-    gain.gain.setValueAtTime(0.12, ac.currentTime);
+    gain.gain.setValueAtTime(0.05, ac.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.12);
 
     osc.connect(gain).connect(ac.destination);

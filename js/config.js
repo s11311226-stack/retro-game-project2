@@ -22,9 +22,9 @@ export const SPEED_RAMP_TIME = 20000; // 毫秒
 export const SPEED_RAMP_MAX_MULT = 2.2;
 
 // 特殊球機率與視覺
-export const CLONE_BALL_CHANCE = 0.25;
-export const PURPLE_BALL_CHANCE = 0.20;
-export const GOLDEN_BALL_CHANCE = 0.05;
+export const CLONE_BALL_CHANCE = 0.35;
+export const PURPLE_BALL_CHANCE = 0.25;
+export const GOLDEN_BALL_CHANCE = 0.10;
 export const GOLDEN_BALL_SIZE = BALL_SIZE / 2;
 export const PURPLE_BALL_COLOR = '#a855f7';
 export const GOLDEN_BALL_COLOR = '#ffd700';

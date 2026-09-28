@@ -567,8 +567,8 @@ export class Game {
       ball.render(ctx);
     }
 
-    // 10. 繪製粒子與特效
-    this.particleSystem.render(ctx);
+    // 10. 繪製粒子與特效（包含弓兵飛行箭矢）
+    this.particleSystem.render(ctx, this.spriteManager);
 
     // 11. 遊戲內狀態文字
     this.hud.renderInGameHUD(ctx, {

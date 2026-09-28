@@ -4,6 +4,8 @@
  * 盾兵 (shield) 支援 warrior 動態精靈圖序列幀播放 (idle/move/attack/dead)
  * 騎兵 (cavalry) 支援 Cavalry 動態精靈圖序列幀播放 (idle/move/attack/dead) 與專屬打擊音效
  * 劍兵 (sword) 支援 warrior2 動態精靈圖序列幀播放 (idle/move/attack/dead) 與專屬打擊音效
+ * 弓兵 (archer) 支援 archer 動態精靈圖序列幀播放 (idle/walk/attack/death) 與拋物線箭矢攻擊
+ * 法師 (mage) 支援 healer 動態精靈圖序列幀播放 (idle/walk/heal/death) 與治癒光環特效
  */
 import { Entity } from './Entity.js';
 import {
@@ -30,7 +32,7 @@ export class Unit extends Entity {
       : type === 'cavalry' ? 12
       : type === 'sword' ? 13
       : type === 'mage' ? 13
-      : type === 'trex' ? SHIELD_SIZE * 6
+      : type === 'trex' ? SHIELD_SIZE * 6 * 3
       : 13;
 
     super(x, y, size, size);
@@ -47,22 +49,34 @@ export class Unit extends Entity {
     this.isDying = false; // 是否進入死亡動畫階段
     this.actionLock = null; // 'base' | 'unit' | 'territory'
 
-    // 是否具備動態精靈圖動畫（暴龍、盾兵、騎兵、劍兵）
-    this.isAnimatedType = (type === 'trex' || type === 'shield' || type === 'cavalry' || type === 'sword');
+    // 是否具備動態精靈圖動畫（暴龍、盾兵、騎兵、劍兵、弓兵、法師）
+    this.isAnimatedType = (type === 'trex' || type === 'shield' || type === 'cavalry' || type === 'sword' || type === 'archer' || type === 'mage');
 
-    // 動態精靈圖動畫狀態控制 (idle / move / attack / dead)
+    // 動態精靈圖動畫狀態控制 (idle / move / attack / dead / heal)
     this.animState = 'idle';
     this.animFrame = 0;
+
+    // 被治療時的光環特效計時
+    this.healingAuraUntil = 0;
   }
 
   /**
-   * 切換動畫狀態（同狀態時不重置影格，除非是 attack 或 dead）
-   * @param {'idle' | 'move' | 'attack' | 'dead'} newState
+   * 套用治療光環特效
+   * @param {number} now
+   */
+  applyHealingAura(now) {
+    this.healingAuraUntil = now + 700;
+  }
+
+  /**
+   * 切換動畫狀態（同狀態時不重置影格，除非是 attack, heal 或 dead）
+   * @param {'idle' | 'move' | 'attack' | 'dead' | 'heal'} newState
    * @param {boolean} forceReset
    */
   setAnimation(newState, forceReset = false) {
     if (this.animState === 'dead') return; // 死亡動畫不可中斷
     if (this.animState === 'attack' && newState !== 'dead' && !forceReset) return; // 攻擊動畫播完才切回
+    if (this.animState === 'heal' && newState !== 'dead' && !forceReset) return; // 治療動畫播完才切回
 
     if (this.animState !== newState || forceReset) {
       this.animState = newState;
@@ -75,6 +89,13 @@ export class Unit extends Entity {
    */
   triggerAttackAnimation() {
     this.setAnimation('attack', true);
+  }
+
+  /**
+   * 觸發治療施法動畫
+   */
+  triggerHealAnimation() {
+    this.setAnimation('heal', true);
   }
 
   /**
@@ -105,7 +126,9 @@ export class Unit extends Entity {
 
     const charId = this.type === 'shield' ? 'warrior'
       : (this.type === 'cavalry' ? 'cavalry'
-      : (this.type === 'sword' ? 'warrior2' : 'chimera'));
+      : (this.type === 'sword' ? 'warrior2'
+      : (this.type === 'archer' ? 'archer'
+      : (this.type === 'mage' ? 'healer' : 'chimera'))));
 
     // 依角色與狀態決定影格播放速率 (以 60 FPS 為基準)
     let speed = 0.14;
@@ -124,6 +147,16 @@ export class Unit extends Entity {
       else if (this.animState === 'attack') speed = 0.22; // 劍兵揮砍速度
       else if (this.animState === 'dead') speed = 0.14;
       else speed = 0.12; // idle
+    } else if (this.type === 'archer') {
+      if (this.animState === 'move') speed = 0.18; // 弓兵移動步頻
+      else if (this.animState === 'attack') speed = 0.18; // 拉弓射箭速率
+      else if (this.animState === 'dead') speed = 0.14; // 倒地動畫
+      else speed = 0.12; // idle
+    } else if (this.type === 'mage') {
+      if (this.animState === 'move') speed = 0.16; // 法師移動步頻
+      else if (this.animState === 'heal') speed = 0.18; // 治癒施法速率
+      else if (this.animState === 'dead') speed = 0.14; // 倒地動畫
+      else speed = 0.12; // idle
     } else {
       // 暴龍 chimera
       if (this.animState === 'move') speed = 0.16;
@@ -135,7 +168,10 @@ export class Unit extends Entity {
 
     const frameCount = spriteManager
       ? spriteManager.getFrameCount(charId, this.animState)
-      : (this.animState === 'attack' ? 8 : this.animState === 'dead' ? 7 : 6);
+      : (this.animState === 'attack' ? (this.type === 'archer' ? 6 : 8)
+        : this.animState === 'heal' ? 8
+        : this.animState === 'dead' ? (this.type === 'chimera' ? 5 : (this.type === 'shield' || this.type === 'cavalry' || this.type === 'sword' ? 7 : 8))
+        : (this.animState === 'move' ? (this.type === 'trex' ? 6 : 8) : 6));
 
     if (this.animState === 'dead') {
       if (this.animFrame >= frameCount - 0.05) {
@@ -143,9 +179,9 @@ export class Unit extends Entity {
         this.animFrame = Math.max(0, frameCount - 1);
         this.alive = false;
       }
-    } else if (this.animState === 'attack') {
+    } else if (this.animState === 'attack' || this.animState === 'heal') {
       if (this.animFrame >= frameCount - 0.05) {
-        // 攻擊動畫播畢，切換回定位待機或移動狀態
+        // 攻擊或治療動畫播畢，切換回定位待機或移動狀態
         this.animState = this.arrived ? 'idle' : 'move';
         this.animFrame = 0;
       }
@@ -225,8 +261,10 @@ export class Unit extends Entity {
       }
       if (lowest) {
         lowest.hp = Math.min(lowest.maxHp, lowest.hp + stats.heal);
+        lowest.applyHealingAura(now);
+        this.triggerHealAnimation();
         particleSystem.addAttackEffect(this.x, this.y, lowest.x, lowest.y, '#8dffb0');
-        audioSystem.playAttackSound('mage');
+        audioSystem.playHealingAura();
         this.cooldownUntil = now + stats.cooldown;
       }
       return;
@@ -277,6 +315,9 @@ export class Unit extends Entity {
       } else if (this.type === 'sword') {
         this.triggerAttackAnimation();
         audioSystem.playSwordAttack();
+      } else if (this.type === 'archer') {
+        this.triggerAttackAnimation();
+        audioSystem.playArrowRelease();
       } else {
         audioSystem.playAttackSound(this.type);
       }
@@ -284,46 +325,72 @@ export class Unit extends Entity {
 
     // 執行鎖定之行為
     if (action === 'base') {
-      // 修正主堡扣血並即時同步遊戲頂部 HUD 與勝負判定
-      if (onBaseDamage) {
-        onBaseDamage(enemyBase, stats.damage);
+      triggerAttack();
+      if (this.type === 'archer') {
+        particleSystem.spawnArrow(this.x, this.y, enemyBase.x, enemyBase.y, () => {
+          if (onBaseDamage) {
+            onBaseDamage(enemyBase, stats.damage);
+          } else {
+            enemyBase.takeDamage(stats.damage);
+          }
+        });
       } else {
-        enemyBase.takeDamage(stats.damage);
+        if (onBaseDamage) {
+          onBaseDamage(enemyBase, stats.damage);
+        } else {
+          enemyBase.takeDamage(stats.damage);
+        }
+        particleSystem.addAttackEffect(this.x, this.y, enemyBase.x, enemyBase.y, unitColor);
       }
 
-      particleSystem.addAttackEffect(this.x, this.y, enemyBase.x, enemyBase.y, unitColor);
-      triggerAttack();
       this.cooldownUntil = now + stats.cooldown;
       return;
     }
 
     if (action === 'unit') {
-      nearestEnemy.takeDamage(stats.damage);
-      particleSystem.addAttackEffect(this.x, this.y, nearestEnemy.x, nearestEnemy.y, unitColor);
       triggerAttack();
-      this.cooldownUntil = now + stats.cooldown;
+      if (this.type === 'archer') {
+        const targetEnemy = nearestEnemy;
+        particleSystem.spawnArrow(this.x, this.y, targetEnemy.x, targetEnemy.y, () => {
+          if (targetEnemy.alive) {
+            targetEnemy.takeDamage(stats.damage);
+          }
+        });
+      } else {
+        nearestEnemy.takeDamage(stats.damage);
+        particleSystem.addAttackEffect(this.x, this.y, nearestEnemy.x, nearestEnemy.y, unitColor);
 
-      // 暴龍機率性暈眩周圍敵軍
-      if (this.type === 'trex' && Math.random() < TREX_STUN_CHANCE) {
-        const enemyUnits = units.filter(e => e.alive && !e.isDying && e.side !== this.side);
-        enemyUnits.sort((a, b) => Math.hypot(a.x - this.x, a.y - this.y) - Math.hypot(b.x - this.x, b.y - this.y));
-        for (let i = 0; i < Math.min(TREX_STUN_COUNT, enemyUnits.length); i++) {
-          enemyUnits[i].stunnedUntil = now + TREX_STUN_DURATION;
+        // 暴龍機率性暈眩周圍敵軍
+        if (this.type === 'trex' && Math.random() < TREX_STUN_CHANCE) {
+          const enemyUnits = units.filter(e => e.alive && !e.isDying && e.side !== this.side);
+          enemyUnits.sort((a, b) => Math.hypot(a.x - this.x, a.y - this.y) - Math.hypot(b.x - this.x, b.y - this.y));
+          for (let i = 0; i < Math.min(TREX_STUN_COUNT, enemyUnits.length); i++) {
+            enemyUnits[i].stunnedUntil = now + TREX_STUN_DURATION;
+          }
         }
       }
+
+      this.cooldownUntil = now + stats.cooldown;
       return;
     }
 
     if (action === 'territory') {
       const reach = this.type === 'archer' ? 60 : 30;
       const effectTargetX = this.side === 'blue' ? this.x + reach : this.x - reach;
-      particleSystem.addAttackEffect(this.x, this.y, effectTargetX, this.y, unitColor);
       triggerAttack();
-      this.cooldownUntil = now + stats.cooldown;
-
-      if (onTerritoryDamage) {
-        onTerritoryDamage(this.side, stats.damage);
+      if (this.type === 'archer') {
+        particleSystem.spawnArrow(this.x, this.y, effectTargetX, this.y, () => {
+          if (onTerritoryDamage) {
+            onTerritoryDamage(this.side, stats.damage);
+          }
+        });
+      } else {
+        particleSystem.addAttackEffect(this.x, this.y, effectTargetX, this.y, unitColor);
+        if (onTerritoryDamage) {
+          onTerritoryDamage(this.side, stats.damage);
+        }
       }
+      this.cooldownUntil = now + stats.cooldown;
     }
   }
 
@@ -340,7 +407,60 @@ export class Unit extends Entity {
     const type = this.type;
     const size = this.width;
 
-    // 1. 盾兵 (warrior) 精靈圖渲染
+    // 1. 弓兵 (archer) 精靈圖渲染
+    if (type === 'archer' && spriteManager && spriteManager.isLoaded) {
+      const frameImg = spriteManager.getFrame('archer', this.animState, this.animFrame);
+      if (frameImg) {
+        const drawW = 48;
+        const drawH = 48;
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+
+        // 腳下繪製陣營光圈
+        ctx.fillStyle = this.side === 'blue' ? 'rgba(77, 184, 255, 0.35)' : 'rgba(255, 91, 91, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + drawH / 2 - 4, 14, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.translate(this.x, this.y);
+
+        // archer 原始方向朝左：藍方需要朝右 (+X) 所以鏡像 scale(-1, 1)，紅方直接朝左 (-X) 不需要翻轉
+        if (this.side === 'blue') {
+          ctx.scale(-1, 1);
+        }
+
+        ctx.drawImage(frameImg, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
+
+        // 暈眩狀態指示
+        if (now < this.stunnedUntil && !this.isDying) {
+          ctx.strokeStyle = 'rgba(255, 230, 60, 0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 18, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.lineWidth = 1;
+        }
+
+        // 血條繪製（死亡階段不顯示血條）
+        if (!this.isDying) {
+          const hpRatio = Math.max(0, this.hp / this.maxHp);
+          const barW = 26;
+          const barY = this.y - drawH / 2 - 6;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(this.x - barW / 2, barY, barW, 3);
+          ctx.fillStyle = this.side === 'blue' ? '#7fd1ff' : '#ff9b9b';
+          ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 3);
+        }
+        this.renderHealingAura(ctx, now, spriteManager);
+        return;
+      }
+    }
+
+    // 2. 盾兵 (warrior) 精靈圖渲染
     if (type === 'shield' && spriteManager && spriteManager.isLoaded) {
       const frameImg = spriteManager.getFrame('warrior', this.animState, this.animFrame);
       if (frameImg) {
@@ -388,6 +508,7 @@ export class Unit extends Entity {
           ctx.fillStyle = this.side === 'blue' ? '#7fd1ff' : '#ff9b9b';
           ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 3);
         }
+        this.renderHealingAura(ctx, now, spriteManager);
         return;
       }
     }
@@ -440,6 +561,7 @@ export class Unit extends Entity {
           ctx.fillStyle = this.side === 'blue' ? '#7fd1ff' : '#ff9b9b';
           ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 3);
         }
+        this.renderHealingAura(ctx, now, spriteManager);
         return;
       }
     }
@@ -492,16 +614,18 @@ export class Unit extends Entity {
           ctx.fillStyle = this.side === 'blue' ? '#7fd1ff' : '#ff9b9b';
           ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 3);
         }
+        this.renderHealingAura(ctx, now, spriteManager);
         return;
       }
     }
 
-    // 4. 暴龍 (chimera) 精靈圖渲染
+    // 4. 暴龍 (chimera) 精靈圖渲染（體積放大三倍）
     if (type === 'trex' && spriteManager && spriteManager.isLoaded) {
       const frameImg = spriteManager.getFrame('chimera', this.animState, this.animFrame);
       if (frameImg) {
-        const drawW = 128;
-        const drawH = 64;
+        // 暴龍體型擴大三倍：由原先 128x64 增加三倍為 384x192，展現震撼全場的巨大恐龍王者威壓
+        const drawW = 384;
+        const drawH = 192;
 
         ctx.save();
         ctx.imageSmoothingEnabled = false;
@@ -518,10 +642,10 @@ export class Unit extends Entity {
         // 暈眩狀態指示
         if (now < this.stunnedUntil && !this.isDying) {
           ctx.strokeStyle = 'rgba(255, 230, 60, 0.85)';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([3, 3]);
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]);
           ctx.beginPath();
-          ctx.arc(this.x, this.y, 36, 0, Math.PI * 2);
+          ctx.arc(this.x, this.y, 90, 0, Math.PI * 2);
           ctx.stroke();
           ctx.setLineDash([]);
           ctx.lineWidth = 1;
@@ -530,18 +654,72 @@ export class Unit extends Entity {
         // 血條繪製（死亡階段不顯示血條）
         if (!this.isDying) {
           const hpRatio = Math.max(0, this.hp / this.maxHp);
-          const barW = 60;
-          const barY = this.y - drawH / 2 - 8;
+          const barW = 160;
+          const barY = this.y - drawH / 2 - 10;
           ctx.fillStyle = 'rgba(0,0,0,0.6)';
-          ctx.fillRect(this.x - barW / 2, barY, barW, 4);
+          ctx.fillRect(this.x - barW / 2, barY, barW, 5);
           ctx.fillStyle = '#ffd700';
-          ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 4);
+          ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 5);
         }
+        this.renderHealingAura(ctx, now, spriteManager);
         return;
       }
     }
 
-    // 5. 其他基礎兵種維持幾何風格（如弓兵、法師等）
+    // 5. 法師 (healer) 精靈圖渲染
+    if (type === 'mage' && spriteManager && spriteManager.isLoaded) {
+      const frameImg = spriteManager.getFrame('healer', this.animState, this.animFrame);
+      if (frameImg) {
+        const drawW = 48;
+        const drawH = 48;
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+
+        // 腳下繪製陣營光圈
+        ctx.fillStyle = this.side === 'blue' ? 'rgba(77, 184, 255, 0.35)' : 'rgba(255, 91, 91, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + drawH / 2 - 4, 15, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.translate(this.x, this.y);
+
+        // healer 原始方向朝左：藍方需要朝右 (+X) 所以鏡像 scale(-1, 1)，紅方直接朝左 (-X) 不需要翻轉
+        if (this.side === 'blue') {
+          ctx.scale(-1, 1);
+        }
+
+        ctx.drawImage(frameImg, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
+
+        // 暈眩狀態指示
+        if (now < this.stunnedUntil && !this.isDying) {
+          ctx.strokeStyle = 'rgba(255, 230, 60, 0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, 18, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.lineWidth = 1;
+        }
+
+        // 血條繪製（死亡階段不顯示血條）
+        if (!this.isDying) {
+          const hpRatio = Math.max(0, this.hp / this.maxHp);
+          const barW = 26;
+          const barY = this.y - drawH / 2 - 6;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(this.x - barW / 2, barY, barW, 3);
+          ctx.fillStyle = this.side === 'blue' ? '#7fd1ff' : '#ff9b9b';
+          ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 3);
+        }
+        this.renderHealingAura(ctx, now, spriteManager);
+        return;
+      }
+    }
+
+    // 6. 其他基礎兵種維持幾何風格（備用方案）
     let color;
     if (type === 'mage') color = '#c07dff';
     else if (type === 'trex') color = '#ffd700';
@@ -639,11 +817,35 @@ export class Unit extends Entity {
 
     // 血條繪製
     const hpRatio = Math.max(0, this.hp / this.maxHp);
-    const barW = type === 'trex' ? 50 : 22;
+    const barW = type === 'trex' ? 120 : 22;
     const barY = this.y - size / 2 - 14;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.fillRect(this.x - barW / 2, barY, barW, 3);
     ctx.fillStyle = color;
     ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 3);
+
+    this.renderHealingAura(ctx, now, spriteManager);
+  }
+
+  /**
+   * 繪製被治療時在目標單位身上播放的動態 healing_aura 光環動畫
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} now
+   * @param {SpriteManager} [spriteManager]
+   */
+  renderHealingAura(ctx, now, spriteManager) {
+    if (this.healingAuraUntil && now < this.healingAuraUntil && spriteManager && spriteManager.isLoaded) {
+      const auraDuration = 700;
+      const auraElapsed = Math.max(0, auraDuration - (this.healingAuraUntil - now));
+      const auraFrameIdx = Math.min(5, Math.floor((auraElapsed / auraDuration) * 6));
+      const auraImg = spriteManager.getFrame('healer', 'healing_aura', auraFrameIdx);
+      if (auraImg) {
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        const auraSize = this.type === 'trex' ? 150 : 48;
+        ctx.drawImage(auraImg, this.x - auraSize / 2, this.y - auraSize / 2, auraSize, auraSize);
+        ctx.restore();
+      }
+    }
   }
 }

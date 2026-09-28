@@ -16,6 +16,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // 實例化輸入控制器與遊戲主控制器
   const inputHandler = new InputHandler(canvas);
   const game = new Game(canvas, inputHandler);
+  window.game = game;
 
   // 實例化遊戲主迴圈
   const gameLoop = new GameLoop(

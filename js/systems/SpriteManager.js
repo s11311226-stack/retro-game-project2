@@ -28,13 +28,27 @@ export class SpriteManager {
         move: [],
         attack: [],
         dead: []
+      },
+      archer: {
+        idle: [],
+        move: [],
+        attack: [],
+        dead: []
+      },
+      healer: {
+        idle: [],
+        move: [],
+        heal: [],
+        dead: [],
+        healing_aura: []
       }
     };
+    this.standaloneImages = {};
     this.isLoaded = false;
   }
 
   /**
-   * 預載入 Chimera、Warrior、Cavalry 與 Warrior2 動畫所有影格
+   * 預載入 Chimera、Warrior、Cavalry、Warrior2、Archer 與 Healer 動畫所有影格
    * @returns {Promise<void>}
    */
   async loadAll() {
@@ -73,16 +87,38 @@ export class SpriteManager {
         id: 'warrior2',
         basePath: 'assets/images/warrior2/PNG/',
         configs: [
-          { name: 'idle', count: 6, prefix: 'Warrior2_Idle' },
-          { name: 'move', count: 8, prefix: 'Warrior2_Move' },
+          { name: 'idle', count: 6, prefix: 'Warrior_Idle_Left_Matched' },
+          { name: 'move', count: 8, prefix: 'Warrior_Move_Left_Matched' },
           { name: 'attack', count: 8, prefix: 'Warrior2_Attack_Left' },
-          { name: 'dead', count: 7, prefix: 'Warrior2_Death' }
+          { name: 'dead', count: 7, prefix: 'Warrior_Death_Left_Matched' }
+        ]
+      },
+      {
+        id: 'archer',
+        basePath: 'assets/images/archer/PNG/',
+        configs: [
+          { name: 'idle', count: 6, prefix: 'archer_idle' },
+          { name: 'move', count: 8, prefix: 'archer_walk' },
+          { name: 'attack', count: 6, prefix: 'archer_attack' },
+          { name: 'dead', count: 8, prefix: 'archer_death' }
+        ]
+      },
+      {
+        id: 'healer',
+        basePath: 'assets/images/healer/PNG/',
+        configs: [
+          { name: 'idle', count: 6, prefix: 'healer_idle' },
+          { name: 'move', count: 8, prefix: 'healer_walk' },
+          { name: 'heal', count: 8, prefix: 'healer_heal' },
+          { name: 'dead', count: 8, prefix: 'healer_death' },
+          { name: 'healing_aura', count: 6, prefix: 'healing_aura' }
         ]
       }
     ];
 
     const loadPromises = [];
 
+    // 載入角色精靈圖影格
     for (const char of characters) {
       this.animations[char.id] = {};
       for (const cfg of char.configs) {
@@ -104,14 +140,24 @@ export class SpriteManager {
       }
     }
 
+    // 載入弓兵飛行箭矢圖檔 arrow_preview.png
+    const arrowImg = new Image();
+    const arrowPromise = new Promise((resolve) => {
+      arrowImg.onload = () => resolve();
+      arrowImg.onerror = () => resolve();
+    });
+    arrowImg.src = 'assets/images/archer/arrow_preview.png';
+    this.standaloneImages['arrow_preview'] = arrowImg;
+    loadPromises.push(arrowPromise);
+
     await Promise.all(loadPromises);
     this.isLoaded = true;
   }
 
   /**
    * 取得指定角色指定動畫與影格之 Image
-   * @param {string} character - 'chimera' | 'warrior' | 'cavalry'
-   * @param {string} animName - 'idle' | 'move' | 'attack' | 'dead'
+   * @param {string} character - 'chimera' | 'warrior' | 'cavalry' | 'warrior2' | 'archer' | 'healer'
+   * @param {string} animName - 'idle' | 'move' | 'attack' | 'dead' | 'heal' | 'healing_aura'
    * @param {number} frameIndex
    * @returns {HTMLImageElement|null}
    */
@@ -124,11 +170,20 @@ export class SpriteManager {
 
   /**
    * 取得指定動畫的總影格數
-   * @param {string} character - 'chimera' | 'warrior' | 'cavalry'
+   * @param {string} character
    * @param {string} animName
    * @returns {number}
    */
   getFrameCount(character, animName) {
     return this.animations[character]?.[animName]?.length || 0;
+  }
+
+  /**
+   * 取得獨立單張圖檔
+   * @param {string} key
+   * @returns {HTMLImageElement|null}
+   */
+  getImage(key) {
+    return this.standaloneImages[key] || null;
   }
 }
