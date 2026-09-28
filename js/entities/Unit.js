@@ -32,7 +32,7 @@ export class Unit extends Entity {
       : type === 'cavalry' ? 12
       : type === 'sword' ? 13
       : type === 'mage' ? 13
-      : type === 'trex' ? SHIELD_SIZE * 6 * 3
+      : type === 'trex' ? SHIELD_SIZE * 9
       : 13;
 
     super(x, y, size, size);
@@ -619,13 +619,13 @@ export class Unit extends Entity {
       }
     }
 
-    // 4. 暴龍 (chimera) 精靈圖渲染（體積放大三倍）
+    // 4. 暴龍 (chimera) 精靈圖渲染（體型依需求縮小一倍，呈現完美 192x96 霸氣比例）
     if (type === 'trex' && spriteManager && spriteManager.isLoaded) {
       const frameImg = spriteManager.getFrame('chimera', this.animState, this.animFrame);
       if (frameImg) {
-        // 暴龍體型擴大三倍：由原先 128x64 增加三倍為 384x192，展現震撼全場的巨大恐龍王者威壓
-        const drawW = 384;
-        const drawH = 192;
+        // 暴龍體型縮小一倍：調整為 192x96（為原始 64x32 的精確 3 倍整數像素放大，銳利且比例適中）
+        const drawW = 192;
+        const drawH = 96;
 
         ctx.save();
         ctx.imageSmoothingEnabled = false;
@@ -643,9 +643,9 @@ export class Unit extends Entity {
         if (now < this.stunnedUntil && !this.isDying) {
           ctx.strokeStyle = 'rgba(255, 230, 60, 0.85)';
           ctx.lineWidth = 2;
-          ctx.setLineDash([5, 5]);
+          ctx.setLineDash([4, 4]);
           ctx.beginPath();
-          ctx.arc(this.x, this.y, 90, 0, Math.PI * 2);
+          ctx.arc(this.x, this.y, 48, 0, Math.PI * 2);
           ctx.stroke();
           ctx.setLineDash([]);
           ctx.lineWidth = 1;
@@ -654,12 +654,12 @@ export class Unit extends Entity {
         // 血條繪製（死亡階段不顯示血條）
         if (!this.isDying) {
           const hpRatio = Math.max(0, this.hp / this.maxHp);
-          const barW = 160;
-          const barY = this.y - drawH / 2 - 10;
+          const barW = 80;
+          const barY = this.y - drawH / 2 - 8;
           ctx.fillStyle = 'rgba(0,0,0,0.6)';
-          ctx.fillRect(this.x - barW / 2, barY, barW, 5);
+          ctx.fillRect(this.x - barW / 2, barY, barW, 4);
           ctx.fillStyle = '#ffd700';
-          ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 5);
+          ctx.fillRect(this.x - barW / 2, barY, barW * hpRatio, 4);
         }
         this.renderHealingAura(ctx, now, spriteManager);
         return;
@@ -817,7 +817,7 @@ export class Unit extends Entity {
 
     // 血條繪製
     const hpRatio = Math.max(0, this.hp / this.maxHp);
-    const barW = type === 'trex' ? 120 : 22;
+    const barW = type === 'trex' ? 60 : 22;
     const barY = this.y - size / 2 - 14;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.fillRect(this.x - barW / 2, barY, barW, 3);
@@ -842,7 +842,7 @@ export class Unit extends Entity {
       if (auraImg) {
         ctx.save();
         ctx.imageSmoothingEnabled = false;
-        const auraSize = this.type === 'trex' ? 150 : 48;
+        const auraSize = this.type === 'trex' ? 84 : 48;
         ctx.drawImage(auraImg, this.x - auraSize / 2, this.y - auraSize / 2, auraSize, auraSize);
         ctx.restore();
       }
