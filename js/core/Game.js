@@ -225,7 +225,7 @@ export class Game {
   }
 
   turretAttackEnemyUnits(side) {
-    let anyDied = false;
+    const now = performance.now();
     for (const t of this.turrets) {
       if (t.side !== side || !t.alive) continue;
 
@@ -241,21 +241,18 @@ export class Game {
       }
 
       if (target) {
-        target.takeDamage(TURRET_DAMAGE);
-        this.particleSystem.addAttackEffect(
-          t.x, t.y, target.x, target.y,
-          t.side === 'blue' ? '#4db8ff' : '#ff5b5b'
-        );
-        this.audioSystem.playAttackSound('turret');
-        if (!target.alive) {
-          anyDied = true;
-        }
-      }
-    }
+        // 砲台播放 turret-1v 攻擊動畫並播放機槍射擊音效
+        t.triggerAttack(now);
+        this.audioSystem.playTurretMachineGun();
 
-    if (anyDied) {
-      this.units = this.units.filter(u => u.alive);
-      this.updateHUD();
+        // 砲台發射五發 bullet 子彈，每顆傷害 0.2
+        this.particleSystem.spawnTurretBullets(t.x, t.y, target, (hitUnit) => {
+          if (!hitUnit.alive) {
+            this.units = this.units.filter(u => u.alive);
+            this.updateHUD();
+          }
+        });
+      }
     }
   }
 
@@ -500,6 +497,7 @@ export class Game {
       const now = performance.now();
       for (const t of this.turrets) {
         t.checkSubmerged(this.boundaryX, now);
+        t.update(dtFactor, now);
       }
 
       this.checkBaseDestruction();
@@ -543,14 +541,14 @@ export class Game {
     // 4. 繪製領地抵抗血條
     this.hud.renderTerritoryHealthBars(ctx, this.boundaryX, this.blueTerritoryHp, this.redTerritoryHp);
 
-    // 5. 繪製主堡
+    // 5. 繪製主堡（CastleTower 與 CastleFlag / CastleFlag2）
     for (const b of this.bases) {
-      b.render(ctx);
+      b.render(ctx, this.spriteManager);
     }
 
-    // 6. 繪製砲台
+    // 6. 繪製砲台（turret1 與 turret-1v 動態序列幀）
     for (const t of this.turrets) {
-      t.render(ctx, now);
+      t.render(ctx, now, this.spriteManager);
     }
 
     // 7. 繪製士兵單位（傳入 spriteManager 進行 Chimera 影格渲染）

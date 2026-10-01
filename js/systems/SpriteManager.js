@@ -41,6 +41,9 @@ export class SpriteManager {
         heal: [],
         dead: [],
         healing_aura: []
+      },
+      turret: {
+        attack: []
       }
     };
     this.standaloneImages = {};
@@ -113,6 +116,13 @@ export class SpriteManager {
           { name: 'dead', count: 8, prefix: 'healer_death' },
           { name: 'healing_aura', count: 6, prefix: 'healing_aura' }
         ]
+      },
+      {
+        id: 'turret',
+        basePath: 'assets/images/turret/PNG/',
+        configs: [
+          { name: 'attack', count: 3, prefix: 'turret-1v' }
+        ]
       }
     ];
 
@@ -140,15 +150,29 @@ export class SpriteManager {
       }
     }
 
-    // 載入弓兵飛行箭矢圖檔 arrow_preview.png
-    const arrowImg = new Image();
-    const arrowPromise = new Promise((resolve) => {
-      arrowImg.onload = () => resolve();
-      arrowImg.onerror = () => resolve();
-    });
-    arrowImg.src = 'assets/images/archer/arrow_preview.png';
-    this.standaloneImages['arrow_preview'] = arrowImg;
-    loadPromises.push(arrowPromise);
+    // 載入獨立單張圖檔（弓兵箭矢、砲台外觀、子彈、主堡與旗幟）
+    const standaloneMap = {
+      'arrow_preview': 'assets/images/archer/arrow_preview.png',
+      'turret1': 'assets/images/turret/turret1.png',
+      'bullet': 'assets/images/turret/bullet.png',
+      'CastleTower': 'assets/images/castle/CastleTower.png',
+      'CastleFlag': 'assets/images/castle/CastleFlag.png',
+      'CastleFlag2': 'assets/images/castle/CastleFlag2.png'
+    };
+
+    for (const [key, path] of Object.entries(standaloneMap)) {
+      const img = new Image();
+      const p = new Promise((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => {
+          console.warn(`獨立圖檔載入失敗: ${path}`);
+          resolve();
+        };
+      });
+      img.src = path;
+      this.standaloneImages[key] = img;
+      loadPromises.push(p);
+    }
 
     await Promise.all(loadPromises);
     this.isLoaded = true;

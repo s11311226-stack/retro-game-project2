@@ -15,6 +15,7 @@ export class ParticleSystem {
     this.wallFlashes = [];
     this.attackEffects = [];
     this.arrows = [];
+    this.turretBullets = [];
   }
 
   clear() {
@@ -22,6 +23,7 @@ export class ParticleSystem {
     this.wallFlashes = [];
     this.attackEffects = [];
     this.arrows = [];
+    this.turretBullets = [];
   }
 
   /**
@@ -116,6 +118,35 @@ export class ParticleSystem {
   }
 
   /**
+   * 產生砲台 5 連發機槍子彈
+   * @param {number} startX
+   * @param {number} startY
+   * @param {import('../entities/Unit.js').Unit} targetUnit
+   * @param {Function} [onHitCallback]
+   */
+  spawnTurretBullets(startX, startY, targetUnit, onHitCallback = null) {
+    const now = performance.now();
+    const count = 5;
+    const interval = 55; // 55ms 間隔發射一發
+    const dist = Math.hypot(targetUnit.x - startX, targetUnit.y - startY);
+    const duration = Math.max(180, Math.min(380, dist * 0.9)); // 高速直線飛行
+
+    for (let i = 0; i < count; i++) {
+      this.turretBullets.push({
+        startX,
+        startY,
+        target: targetUnit,
+        targetX: targetUnit.x,
+        targetY: targetUnit.y,
+        startTime: now + i * interval,
+        duration,
+        damage: 0.2,
+        onHit: onHitCallback
+      });
+    }
+  }
+
+  /**
    * 物理與生命週期更新
    * @param {number} dtFactor
    */
@@ -160,6 +191,45 @@ export class ParticleSystem {
       }
     }
     this.arrows = survivingArrows;
+
+    // 更新砲台機槍子彈
+    const survivingBullets = [];
+    for (const b of this.turretBullets) {
+      if (now < b.startTime) {
+        survivingBullets.push(b);
+        continue;
+      }
+
+      if (b.target && b.target.alive && !b.target.isDying) {
+        b.targetX = b.target.x;
+        b.targetY = b.target.y;
+      }
+
+      const elapsed = now - b.startTime;
+      const t = elapsed / b.duration;
+      if (t >= 1) {
+        if (b.target && b.target.alive && !b.target.isDying) {
+          b.target.takeDamage(b.damage);
+          if (b.onHit) b.onHit(b.target);
+        }
+        // 子彈命中微型火花
+        for (let i = 0; i < 4; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          this.particles.push({
+            x: b.targetX,
+            y: b.targetY,
+            vx: Math.cos(angle) * (1.5 + Math.random() * 2.5),
+            vy: Math.sin(angle) * (1.5 + Math.random() * 2.5),
+            color: '#ffe066',
+            startTime: now,
+            maxLife: 180
+          });
+        }
+      } else {
+        survivingBullets.push(b);
+      }
+    }
+    this.turretBullets = survivingBullets;
   }
 
   /**
@@ -240,6 +310,31 @@ export class ParticleSystem {
       } else {
         ctx.fillStyle = '#ffd166';
         ctx.fillRect(-12, -2, 24, 4);
+      }
+      ctx.restore();
+    }
+
+    // 5. 繪製砲台機槍子彈 bullet.png
+    const bulletImg = spriteManager?.getImage('bullet');
+    for (const b of this.turretBullets) {
+      if (now < b.startTime) continue;
+      const elapsed = now - b.startTime;
+      const t = Math.max(0, Math.min(1, elapsed / b.duration));
+      const curX = b.startX + (b.targetX - b.startX) * t;
+      const curY = b.startY + (b.targetY - b.startY) * t;
+      const angle = Math.atan2(b.targetY - b.startY, b.targetX - b.startX);
+
+      ctx.save();
+      ctx.translate(curX, curY);
+      ctx.rotate(angle);
+
+      if (bulletImg && bulletImg.complete) {
+        const drawW = 18;
+        const drawH = 14;
+        ctx.drawImage(bulletImg, -drawW / 2, -drawH / 2, drawW, drawH);
+      } else {
+        ctx.fillStyle = '#ffe066';
+        ctx.fillRect(-7, -2.5, 14, 5);
       }
       ctx.restore();
     }

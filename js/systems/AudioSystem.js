@@ -54,7 +54,8 @@ export class AudioSystem {
       { key: 'qubodupItemHandling1', url: 'assets/audio/qubodupItemHandling1.flac' },
       { key: 'knifesharpener2', url: 'assets/audio/knifesharpener2.flac' },
       { key: 'arrow_release', url: 'assets/audio/arrow_release.wav' },
-      { key: 'healing_aura', url: 'assets/audio/healing_aura.wav' }
+      { key: 'healing_aura', url: 'assets/audio/healing_aura.wav' },
+      { key: 'turret_machinegun', url: 'assets/audio/turret_machinegun.wav' }
     ];
 
     for (const item of files) {
@@ -181,6 +182,13 @@ export class AudioSystem {
   }
 
   /**
+   * 砲台 (Turret) 機槍發射音效：turret_machinegun
+   */
+  playTurretMachineGun() {
+    this.playSoundBuffer('turret_machinegun', 0.2);
+  }
+
+  /**
    * 球碰撞上/下牆壁時的短促方波音效
    */
   playWallHitSound() {
@@ -250,6 +258,11 @@ export class AudioSystem {
 
     if (kind === 'mage' || kind === 'healer') {
       this.playHealingAura();
+      return;
+    }
+
+    if (kind === 'turret') {
+      this.playTurretMachineGun();
       return;
     }
 
