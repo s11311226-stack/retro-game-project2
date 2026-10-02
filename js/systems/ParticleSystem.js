@@ -127,9 +127,9 @@ export class ParticleSystem {
   spawnTurretBullets(startX, startY, targetUnit, onHitCallback = null) {
     const now = performance.now();
     const count = 5;
-    const interval = 55; // 55ms 間隔發射一發
+    const interval = 160; // 160ms 間隔連發（由原本 55ms 放慢，節奏分明）
     const dist = Math.hypot(targetUnit.x - startX, targetUnit.y - startY);
-    const duration = Math.max(180, Math.min(380, dist * 0.9)); // 高速直線飛行
+    const duration = Math.max(380, Math.min(700, dist * 1.5)); // 飛行速度放緩，彈道軌跡清晰可辨
 
     for (let i = 0; i < count; i++) {
       this.turretBullets.push({

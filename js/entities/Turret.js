@@ -17,7 +17,9 @@ export class Turret extends Entity {
     this.destroyedAt = null;
     this.isAttacking = false;
     this.attackStartTime = 0;
-    this.attackDuration = 350; // 毫秒 (3幀 turret-1v 動畫)
+    this.attackDuration = 900; // 毫秒 (放慢開火動畫時間，覆蓋 5 連發完整節奏)
+    this.attackCooldown = 1100; // 毫秒 (砲台攻擊冷卻時間)
+    this.cooldownUntil = 0;
   }
 
   /**
@@ -27,6 +29,7 @@ export class Turret extends Entity {
   triggerAttack(now = performance.now()) {
     this.isAttacking = true;
     this.attackStartTime = now;
+    this.cooldownUntil = now + this.attackCooldown;
   }
 
   /**
@@ -70,7 +73,24 @@ export class Turret extends Entity {
 
       if (isAttackingNow && spriteManager) {
         const elapsed = now - this.attackStartTime;
-        const frameIdx = Math.min(2, Math.floor(elapsed / (this.attackDuration / 3)));
+        // 5 發子彈每發間隔 160ms，每一發對應一次開火閃光、後座力與瞄準循環（放慢清晰節奏）
+        const shotCycle = 160;
+        const shotIndex = Math.floor(elapsed / shotCycle);
+        let frameIdx = 0;
+        if (shotIndex < 5) {
+          const tInShot = elapsed % shotCycle;
+          if (tInShot < 60) {
+            frameIdx = 1; // turret-1v2: 槍口開火強烈閃光
+          } else if (tInShot < 120) {
+            frameIdx = 2; // turret-1v3: 槍管後座力與排煙微粒
+          } else {
+            frameIdx = 0; // turret-1v1: 槍管瞄準復位
+          }
+        } else {
+          // 5 發打完後的收槍冷卻回位
+          frameIdx = (elapsed - 5 * shotCycle < 100) ? 2 : 0;
+        }
+
         const attackImg = spriteManager.getFrame('turret', 'attack', frameIdx);
 
         if (attackImg && attackImg.complete) {

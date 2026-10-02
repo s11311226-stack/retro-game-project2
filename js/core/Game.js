@@ -228,6 +228,7 @@ export class Game {
     const now = performance.now();
     for (const t of this.turrets) {
       if (t.side !== side || !t.alive) continue;
+      if (now < t.cooldownUntil) continue;
 
       let target = null;
       let bestDist = Infinity;
